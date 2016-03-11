@@ -591,6 +591,10 @@ class Cursor(object):
             self.rowcount = -1
             raise
 
+	buf = create_string_buffer(512)
+	if self.api.ads_error(self.stmt, buf, sizeof(buf)):
+		raise self.parent.error()
+
         return [(self.valueof)(param.value) for param in parms]
 
     def execute(self, operation, parameters = ()):
