@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #######################################################################
 # Copyright 1994-2011 iAnywhere Solutions, Inc.  All rights reserved.
 # This sample code is provided AS IS, without warranty or liability
@@ -15,9 +16,9 @@ import adsdb
 conn = adsdb.connect(DataSource='c:\\', ServerType='local or remote')
 cur = conn.cursor()
 
-cur.execute("select 'Hello World' from system.iota")
-assert cur.fetchone()[0] > 0
+cur.execute(u"select 'Hellö Wörld' from system.iota")
+assert cur.fetchone()[0] == u'Hellö Wörld'
 
 conn.close()
-print 'adsdb successfully installed.'
+print('adsdb successfully installed.')
 

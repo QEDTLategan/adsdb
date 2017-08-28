@@ -29,12 +29,29 @@ import os
 import sys
 import time
 import datetime
-import exceptions
 import codecs
 import platform
 from ctypes import *
 from struct import pack, unpack, calcsize
 from decimal import *
+
+try:
+    from exceptions import StandarError
+except ImportError:
+    # Python 3:
+    StandarError = Exception
+
+try:
+    unicode
+except NameError:
+    # Python 3:
+    unicode = str
+
+try:
+    xrange
+except NameError:
+    # Python 3:
+    xrange = range
 
 API_VERSION = 1
 API_VERSION_EX = 2
@@ -189,11 +206,10 @@ ToPyType = {DT_DATE         : DATE,
             DT_NFIXCHAR     : STRING,
             DT_NVARCHAR     : STRING}
 
-
-class Error(exceptions.StandardError):
+class Error(StandarError):
     pass
 
-class Warning(exceptions.StandardError):
+class Warning(StandarError):
     """Raise for important warnings like data truncation while inserting."""
     pass
 
@@ -276,14 +292,14 @@ def mk_assign(char_set):
                 param.value.type = A_STRING
         fmt = format[param.value.type]
         if fmt == 'x':
-            if isinstance(value, str):
+            if isinstance(value, bytes):
                 size = length = len(value)
             elif isinstance(value, unicode):
                 param.value.type = A_NCHAR
                 value = value.encode('utf-16')
                 size = length = len(value) + 2  # +2 for the BOM chars
             else:
-                value = str(value)
+                value = bytes(value)
                 size = length = len(value)
             if param.direction != DD_INPUT:
                 if size < param.value.buffer_size:
@@ -393,9 +409,9 @@ class Connection(object):
         char_set = 'utf-16'
         params = ';'.join( kw + '=' + arg for kw, arg in kwargs.items())
         if isinstance(params, unicode):
-            params = args.encode('utf-16')
+            params = params.encode('utf-8')
 
-        self.valueof = mk_valueof((A_BINARY, A_STRING), char_set)
+        self.valueof = mk_valueof((A_BINARY,), char_set)
         self.assign = mk_assign(char_set)
         self.char_set = char_set
         self.c = self.api.ads_new_connection()
@@ -471,7 +487,7 @@ class Cursor(object):
         def __init__(self,types):
             def find_converter(t):
                 return CONVERSION_CALLBACKS.get(t, lambda x: x)
-            self.converters = map(find_converter, types)
+            self.converters = list(map(find_converter, types))
 
         def gen(self,values):
             for converter, value in zip(self.converters, values):
@@ -514,7 +530,7 @@ class Cursor(object):
     def new_statement(self, operation):
         self.free_statement()
         if isinstance( operation, unicode ):
-            operation = operation.encode( "utf-16" ) + chr(0)  # +chr(0) since ACE needs 2 NULL chars for utf-16
+            operation = operation.encode( "utf-16" ) + b'\x00'  # +b'\x00' since ACE needs 2 NULL chars for utf-16
             self.stmt = self.api.ads_prepare(self.con(), operation, True ) # True unicode utf-16
         else:
             self.stmt = self.api.ads_prepare(self.con(), operation, False ) # False, not unicode
@@ -537,13 +553,13 @@ class Cursor(object):
 
     def columns(self):
         info = ColumnInfo()
-        for i in xrange(self.api.ads_num_cols(self.get_stmt())):
+        for i in range(self.api.ads_num_cols(self.get_stmt())):
             self.api.ads_get_column_info(self.get_stmt(), i, byref(info))
             if info.native_type in [DT_NSTRING,DT_NFIXCHAR,DT_NVARCHAR,DT_LONGNVARCHAR]:
                 # Precision and size here are in bytes, so convert it to chars
                 # for unicode fields
-                info.precision = info.precision / 2
-                info.max_size = info.max_size / 2
+                info.precision = info.precision // 2
+                info.max_size = info.max_size // 2
             yield ((info.name,
                    ToPyType[info.native_type],
                    None,
@@ -574,7 +590,7 @@ class Cursor(object):
                     raise self.parent.error()
 
                 try:
-                    self.description, types = zip(*self.columns())
+                    self.description, types = list(zip(*self.columns()))
                     rowcount = self.api.ads_num_rows(self.stmt)
                     self.converter = self.TypeConverter(types)
                 except ValueError:
@@ -590,11 +606,9 @@ class Cursor(object):
         except:
             self.rowcount = -1
             raise
-
-	buf = create_string_buffer(512)
-	if self.api.ads_error(self.stmt, buf, sizeof(buf)):
-		raise self.parent.error()
-
+        buf = create_string_buffer(512)
+        if self.api.ads_error(self.stmt, buf, sizeof(buf)):
+            raise self.parent.error()
         return [(self.valueof)(param.value) for param in parms]
 
     def execute(self, operation, parameters = ()):
@@ -617,7 +631,7 @@ class Cursor(object):
             raise InterfaceError("no result set")
 
         while self.api.ads_fetch_next(self.get_stmt()):
-            yield tuple(self.converter.gen(self.values()))
+            yield tuple(self.converter.gen(list(self.values())))
 
     def fetchmany(self, size=None):
         if size is None:
@@ -658,7 +672,7 @@ def TimeFromTicks(ticks):
 def TimestampFromTicks(ticks):
     return Timestamp(*time.localtime(ticks)[:6])
 
-class Binary( str ):
+class Binary( bytes ):
     pass
 
 def ads_typecast_timestamp (s):
