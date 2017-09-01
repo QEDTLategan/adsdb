@@ -6,7 +6,7 @@ Requirements
 Before installing the adsdb interface please make sure the
 following components are installed on your system.
 
-- Python 2.4 or greater
+- Python 2.7 or greater (Python 3 is supported by this fork!)
 - Python ctypes module if missing
 - Advantage Database Server 10.1 or newer (Advantage Local Server works too)
 
