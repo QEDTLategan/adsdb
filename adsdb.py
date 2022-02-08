@@ -715,6 +715,8 @@ def ads_typecast_timestamp(s):
     if not s: return None
     if isinstance(s, datetime.datetime):
         return s
+    if isinstance(s, bytes):
+        s = s.decode('utf-8')
     if not ' ' in s: return typecast_date(s)
 
     d, t, ampm = s.split()
@@ -744,6 +746,8 @@ def ads_typecast_date(s):
     if not s: return None
     if isinstance(s, datetime.date):
         return s
+    if isinstance(s, bytes):
+        s = s.decode('utf-8')
 
     m, d, y = s.split('/')
     return s and datetime.date(int(y), int(m),
