@@ -351,12 +351,49 @@ else:
     raise InterfaceError(
         "Could not determine Python architecture type (64 or 32 bit).")
 
-if bIsWindows == False:
+# Default path for the ACE library
+if sys.platform.startswith('linux'):
     strACELibrary = 'libace.so'
-elif bIs64Bit == True:
-    strACELibrary = 'ace64.dll'
+elif sys.platform.startswith('win'):
+    # Check if 64-bit or 32-bit Python
+    if platform.architecture()[0] == '64bit':
+        # Look in standard locations for ace64.dll
+        ace_paths = [
+            r'C:\Program Files\Advantage 11.10\acesdk\ace64.dll',
+            r'C:\Program Files\Advantage\acesdk\ace64.dll',
+            'ace64.dll'  # Fallback to just the filename
+        ]
+        
+        # Use the first one that exists
+        strACELibrary = None
+        for path in ace_paths:
+            if os.path.exists(path):
+                strACELibrary = path
+                break
+                
+        if strACELibrary is None:
+            strACELibrary = 'ace64.dll'  # Default fallback
+    else:
+        # Look in standard locations for ace32.dll
+        ace_paths = [
+            r'C:\Program Files (x86)\Advantage 11.10\acesdk\ace32.dll',
+            r'C:\Program Files (x86)\Advantage\acesdk\ace32.dll',
+            'ace32.dll'  # Fallback to just the filename
+        ]
+        
+        # Use the first one that exists
+        strACELibrary = None
+        for path in ace_paths:
+            if os.path.exists(path):
+                strACELibrary = path
+                break
+                
+        if strACELibrary is None:
+            strACELibrary = 'ace32.dll'  # Default fallback
 else:
-    strACELibrary = 'ace32.dll'
+    strACELibrary = 'ace64.dll'
+    
+print(f"Using ACE library: {strACELibrary}")
 
 
 def load_library(*names):
